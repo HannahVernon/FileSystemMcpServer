@@ -345,6 +345,12 @@ public class FileSystemService : IFileSystemService
     {
         try
         {
+            if (path.Length > _config.MaxPathLength)
+            {
+                _logger.Log("WARN", "IsPathAllowed", "(truncated)", "Path exceeds maximum length");
+                return false;
+            }
+
             // Resolve symlinks/junctions to get the real target path
             var normalizedPath = ResolveFinalTarget(path);
 

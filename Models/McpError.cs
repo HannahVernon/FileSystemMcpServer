@@ -79,43 +79,40 @@ public static class McpErrorFactory
     public static McpError FileNotFound(string path) => new()
     {
         Code = McpErrorCode.FileNotFound,
-        Message = $"File not found: {path}",
-        Data = new { Path = path }
+        Message = "File not found",
+        Data = new { Path = Path.GetFileName(path) }
     };
 
     public static McpError DirectoryNotFound(string path) => new()
     {
         Code = McpErrorCode.DirectoryNotFound,
-        Message = $"Directory not found: {path}",
-        Data = new { Path = path }
+        Message = "Directory not found",
+        Data = new { Path = Path.GetFileName(path) }
     };
 
     public static McpError PermissionDenied(string operation, string path) => new()
     {
         Code = McpErrorCode.PermissionDenied,
-        Message = $"Permission denied for '{operation}' on '{path}'",
-        Data = new { Operation = operation, Path = path }
+        Message = $"Permission denied for '{operation}'",
+        Data = new { Operation = operation }
     };
 
     public static McpError PathNotAllowed(string path) => new()
     {
         Code = McpErrorCode.PathNotAllowed,
-        Message = $"Path not allowed: '{path}'. Only configured directories are accessible.",
-        Data = new { Path = path }
+        Message = "Path is outside configured allowed directories."
     };
 
     public static McpError InvalidPath(string path) => new()
     {
         Code = McpErrorCode.InvalidPath,
-        Message = $"Invalid path format: '{path}'",
-        Data = new { Path = path }
+        Message = "Invalid path format"
     };
 
     public static McpError FileLocked(string path) => new()
     {
         Code = McpErrorCode.FileLocked,
-        Message = $"File is locked and cannot be accessed: '{path}'",
-        Data = new { Path = path }
+        Message = "File is locked and cannot be accessed"
     };
 
     public static McpError OperationNotSupported(string operation) => new()

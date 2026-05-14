@@ -14,6 +14,9 @@ public class FileSystemWatcherService : IDisposable
     private readonly List<FileSystemWatcher> _watchers = new();
     private readonly ServerConfiguration _config;
     private readonly ILogger<FileSystemWatcherService> _logger;
+    private readonly Dictionary<string, DateTime> _recentEvents = new();
+    private readonly object _debounceLock = new();
+    private static readonly TimeSpan DebounceWindow = TimeSpan.FromMilliseconds(500);
 
     public FileSystemWatcherService(ServerConfiguration config, ILogger<FileSystemWatcherService> logger)
     {
@@ -85,6 +88,19 @@ public class FileSystemWatcherService : IDisposable
 
     private void LogChange(string action, string path)
     {
+        lock (_debounceLock)
+        {
+            var key = $"{action}:{path}";
+            var now = DateTime.UtcNow;
+
+            if (_recentEvents.TryGetValue(key, out var lastTime) && (now - lastTime) < DebounceWindow)
+            {
+                return;
+            }
+
+            _recentEvents[key] = now;
+        }
+
         _logger.LogInformation($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] [{action}] {path}");
     }
 

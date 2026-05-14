@@ -66,6 +66,12 @@ public class ServerConfiguration
     [JsonProperty("allowConfigureDirectories", DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool AllowConfigureDirectories { get; set; } = true;
 
+    [JsonProperty("maxAllowedDirectories", DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public int MaxAllowedDirectories { get; set; } = 50;
+
+    [JsonProperty("maxPathLength", DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public int MaxPathLength { get; set; } = 260;
+
     /// <summary>
     /// Returns true if write operations are permitted (not read-only mode).
     /// </summary>
@@ -124,6 +130,11 @@ public class ServerConfiguration
             throw new ArgumentException("Path cannot be empty", nameof(path));
         }
 
+        if (path.Length > MaxPathLength)
+        {
+            throw new ArgumentException($"Path exceeds maximum length of {MaxPathLength}", nameof(path));
+        }
+
         var normalizedPath = Path.GetFullPath(path);
 
         if (!Directory.Exists(normalizedPath))
@@ -134,6 +145,12 @@ public class ServerConfiguration
         _dirLock.EnterWriteLock();
         try
         {
+            if (_allowedDirectories.Count >= MaxAllowedDirectories)
+            {
+                throw new InvalidOperationException(
+                    $"Maximum of {MaxAllowedDirectories} allowed directories reached.");
+            }
+
             if (!_allowedDirectories.Contains(normalizedPath, StringComparer.OrdinalIgnoreCase))
             {
                 _allowedDirectories.Add(normalizedPath);

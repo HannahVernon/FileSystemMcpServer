@@ -124,7 +124,13 @@ public class Program
             {
                 line = ReadLineBounded(reader, MaxLineLength);
 
-                if (string.IsNullOrEmpty(line)) continue;
+                if (line == null)
+                {
+                    Console.Error.WriteLine("stdin closed. Shutting down.");
+                    return;
+                }
+
+                if (line.Length == 0) continue;
 
                 var request = JsonConvert.DeserializeObject<McpRequest>(line, jsonSettings);
 
@@ -164,7 +170,7 @@ public class Program
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error processing request: {ex.Message}");
-                SendError(writer, McpErrorFactory.InternalError(ex.Message));
+                SendError(writer, McpErrorFactory.InternalError("An internal error occurred."));
             }
         }
     }

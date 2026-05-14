@@ -61,3 +61,14 @@ The `filesystem/configureDirectories` method allows runtime expansion of the all
 directory list. This is a privileged operation: it is only available after the MCP
 `initialize` handshake completes. Host integrators should be aware that any client that
 completes initialization can call this method to add new directories.
+
+### Privilege inheritance
+
+The server runs with the same privileges as the process that launched it. If the parent
+process runs as administrator/root, the server inherits those elevated privileges and
+can access any file the OS permits within its allowed directories.
+
+The server does not drop privileges after initialization. This is by design for
+simplicity, but it means that the host process is responsible for launching the server
+with appropriate privilege levels. Running as a restricted user account or in a
+container is recommended for production deployments.

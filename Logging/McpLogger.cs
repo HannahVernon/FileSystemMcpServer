@@ -10,12 +10,26 @@ public class McpLogger : ILogger
 {
     private readonly string _logFilePath;
     private readonly object _lock = new();
+    private readonly string _callerIdentity;
     private const long MaxLogFileSize = 10 * 1024 * 1024; // 10 MB
     private const int MaxLogFiles = 5;
 
     public McpLogger(string? logFilePath)
     {
         _logFilePath = logFilePath ?? "mcp-server.log";
+
+        // Capture caller identity at startup for audit trail
+        try
+        {
+            var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+            var parentId = Environment.ProcessId;
+            var userName = Environment.UserName;
+            _callerIdentity = $"user={userName} pid={parentId}";
+        }
+        catch
+        {
+            _callerIdentity = "unknown";
+        }
 
         var logDir = Path.GetDirectoryName(_logFilePath);
         if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
@@ -30,7 +44,7 @@ public class McpLogger : ILogger
     public void Log(string level, string operation, string path, string details)
     {
         var timestamp = DateTime.UtcNow.ToString("o");
-        var logEntry = $"[{timestamp}] [{level}] [{operation}] {path}: {details}";
+        var logEntry = $"[{timestamp}] [{level}] [{operation}] [{_callerIdentity}] {path}: {details}";
 
         lock (_lock)
         {
