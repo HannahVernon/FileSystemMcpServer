@@ -10,12 +10,13 @@ public class McpLogger : ILogger
 {
     private readonly string _logFilePath;
     private readonly object _lock = new();
+    private const long MaxLogFileSize = 10 * 1024 * 1024; // 10 MB
+    private const int MaxLogFiles = 5;
 
     public McpLogger(string? logFilePath)
     {
         _logFilePath = logFilePath ?? "mcp-server.log";
 
-        // Ensure log directory exists
         var logDir = Path.GetDirectoryName(_logFilePath);
         if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
         {
@@ -35,6 +36,7 @@ public class McpLogger : ILogger
         {
             try
             {
+                RotateIfNeeded();
                 File.AppendAllText(_logFilePath, logEntry + Environment.NewLine);
             }
             catch (Exception ex)
@@ -42,6 +44,27 @@ public class McpLogger : ILogger
                 Console.Error.WriteLine($"[ERROR] Failed to write log: {ex.Message}");
             }
         }
+    }
+
+    private void RotateIfNeeded()
+    {
+        if (!File.Exists(_logFilePath)) return;
+
+        var fileInfo = new FileInfo(_logFilePath);
+        if (fileInfo.Length < MaxLogFileSize) return;
+
+        // Shift existing rotated files: .4 -> .5 (delete), .3 -> .4, .2 -> .3, .1 -> .2
+        for (int i = MaxLogFiles - 1; i >= 1; i--)
+        {
+            var source = $"{_logFilePath}.{i}";
+            var target = $"{_logFilePath}.{i + 1}";
+
+            if (File.Exists(target)) File.Delete(target);
+            if (File.Exists(source)) File.Move(source, target);
+        }
+
+        // Current -> .1
+        File.Move(_logFilePath, $"{_logFilePath}.1");
     }
 
     public IDisposable BeginScope<TState>(TState state) where TState : notnull => null!;

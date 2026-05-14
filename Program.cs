@@ -104,6 +104,9 @@ public class Program
     /// <summary>
     /// Main loop for handling JSON-RPC requests via stdio
     /// </summary>
+    private const int MaxLineLength = 10 * 1024 * 1024; // 10 MB
+    private static bool _initialized = false;
+
     private static void RunMcpLoop(IHost host)
     {
         var stdin = Console.OpenStandardInput();
@@ -112,20 +115,44 @@ public class Program
         using var reader = new StreamReader(stdin);
         using var writer = new StreamWriter(stdout);
 
+        var jsonSettings = new JsonSerializerSettings { MaxDepth = 32 };
+
         while (true)
         {
             string? line;
             try
             {
-                line = reader.ReadLine();
+                line = ReadLineBounded(reader, MaxLineLength);
 
                 if (string.IsNullOrEmpty(line)) continue;
 
-                var request = JsonConvert.DeserializeObject<McpRequest>(line);
+                var request = JsonConvert.DeserializeObject<McpRequest>(line, jsonSettings);
 
                 if (request == null || !request.Validate())
                 {
                     SendError(writer, McpErrorFactory.ParseError("Invalid JSON-RPC request"));
+                    continue;
+                }
+
+                // notifications/initialized is a notification (no id), just acknowledge
+                if (request.Method == "notifications/initialized")
+                {
+                    Console.Error.WriteLine("Client initialization complete.");
+                    continue;
+                }
+
+                // ping is allowed at any time per the MCP spec
+                if (request.Method == "ping")
+                {
+                    writer.WriteLine(JsonConvert.SerializeObject(McpResponse.Success(new { }, request.Id)));
+                    writer.Flush();
+                    continue;
+                }
+
+                // Before initialization, only initialize is accepted
+                if (!_initialized && request.Method != "initialize")
+                {
+                    SendError(writer, McpErrorFactory.InvalidRequest("Server not initialized. Send 'initialize' first."), request.Id);
                     continue;
                 }
 
@@ -148,17 +175,50 @@ public class Program
     private static McpResponse HandleMethod(McpRequest request, IServiceProvider services)
     {
         var fileService = services.GetRequiredService<IFileSystemService>();
+        var config = services.GetRequiredService<ServerConfiguration>();
 
         return request.Method switch
         {
+            "initialize" => HandleInitialize(request),
             "files/read" => HandleRead(request, fileService),
-            "files/write" => HandleWrite(request, fileService),
-            "files/delete" => HandleDelete(request, fileService),
+            "files/write" => RequireCapability(config.CanWrite, "write", request)
+                             ?? HandleWrite(request, fileService, config),
+            "files/delete" => RequireCapability(config.CanDelete, "delete", request)
+                              ?? HandleDelete(request, fileService),
             "files/list" => HandleList(request, fileService),
-            "files/renameOrMove" => HandleRenameOrMove(request, fileService),
-            "filesystem/configureDirectories" => HandleConfigureDirectories(request, services),
+            "files/renameOrMove" => RequireCapability(config.CanRename, "renameOrMove", request)
+                                    ?? HandleRenameOrMove(request, fileService),
+            "filesystem/configureDirectories" => RequireCapability(config.CanConfigureDirectories, "configureDirectories", request)
+                                                 ?? HandleConfigureDirectories(request, services),
             _ => McpResponse.Error(McpErrorFactory.MethodNotFound(request.Method), request.Id)
         };
+    }
+
+    private static McpResponse? RequireCapability(bool allowed, string operation, McpRequest request)
+    {
+        if (allowed) return null;
+        return McpResponse.Error(McpErrorFactory.OperationNotSupported(
+            $"{operation} is disabled by server configuration"), request.Id);
+    }
+
+    private static McpResponse HandleInitialize(McpRequest request)
+    {
+        _initialized = true;
+        Console.Error.WriteLine("MCP initialization handshake accepted.");
+
+        return McpResponse.Success(new
+        {
+            protocolVersion = "2025-03-26",
+            capabilities = new
+            {
+                tools = new { listChanged = false }
+            },
+            serverInfo = new
+            {
+                name = "FileSystemMcpServer",
+                version = "1.0.0"
+            }
+        }, request.Id);
     }
 
     private static McpResponse HandleRead(McpRequest request, IFileSystemService fileService)
@@ -181,7 +241,7 @@ public class Program
         }
     }
 
-    private static McpResponse HandleWrite(McpRequest request, IFileSystemService fileService)
+    private static McpResponse HandleWrite(McpRequest request, IFileSystemService fileService, ServerConfiguration config)
     {
         var args = GetArgs(request);
 
@@ -193,6 +253,12 @@ public class Program
         if (args.Content == null)
         {
             return McpResponse.Error(McpErrorFactory.InvalidParams("Missing 'content' argument"), request.Id);
+        }
+
+        if (args.Content.Length > config.MaxFileSizeBytes)
+        {
+            return McpResponse.Error(McpErrorFactory.InvalidParams(
+                $"Content exceeds maximum file size of {config.MaxFileSizeBytes} bytes"), request.Id);
         }
 
         try
@@ -328,5 +394,42 @@ public class Program
         var response = McpResponse.Error(error, null);
         writer.WriteLine(JsonConvert.SerializeObject(response));
         writer.Flush();
+    }
+
+    private static void SendError(StreamWriter writer, McpError error, object? id)
+    {
+        var response = McpResponse.Error(error, id);
+        writer.WriteLine(JsonConvert.SerializeObject(response));
+        writer.Flush();
+    }
+
+    /// <summary>
+    /// Reads a line from the stream with a maximum length to prevent memory exhaustion.
+    /// Returns null at end-of-stream.
+    /// </summary>
+    private static string? ReadLineBounded(StreamReader reader, int maxLength)
+    {
+        var sb = new System.Text.StringBuilder();
+        int ch;
+        while ((ch = reader.Read()) != -1)
+        {
+            if (ch == '\n') break;
+            if (ch == '\r')
+            {
+                if (reader.Peek() == '\n') reader.Read();
+                break;
+            }
+
+            if (sb.Length >= maxLength)
+            {
+                throw new InvalidOperationException(
+                    $"Input line exceeds maximum length of {maxLength} bytes. Discarding.");
+            }
+
+            sb.Append((char)ch);
+        }
+
+        if (ch == -1 && sb.Length == 0) return null;
+        return sb.ToString();
     }
 }

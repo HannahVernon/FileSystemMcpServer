@@ -51,6 +51,12 @@ public static class McpErrorFactory
         Message = $"Invalid request for '{method}': {message}"
     };
 
+    public static McpError InvalidRequest(string message) => new()
+    {
+        Code = McpErrorCode.InvalidRequest,
+        Message = message
+    };
+
     public static McpError MethodNotFound(string method) => new()
     {
         Code = McpErrorCode.MethodNotFound,

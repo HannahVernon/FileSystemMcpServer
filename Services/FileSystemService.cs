@@ -157,6 +157,8 @@ public class FileSystemService : IFileSystemService
     /// <summary>
     /// List files and directories in a directory
     /// </summary>
+    private const int MaxListingEntries = 10_000;
+
     public List<FileEntry> List(string path, bool recursive = false)
     {
         if (!IsPathAllowed(path))
@@ -176,17 +178,41 @@ public class FileSystemService : IFileSystemService
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             var entries = directoryInfo.EnumerateFileSystemInfos("*", searchOption);
 
-            return entries.Select(e => new FileEntry
+            var results = new List<FileEntry>();
+
+            foreach (var e in entries)
             {
-                Name = e.Name,
-                Path = e.FullName,
-                Type = e is FileInfo ? FileEntry.FileType.File
-                      : e is DirectoryInfo ? FileEntry.FileType.Directory
-                      : FileEntry.FileType.Symlink,
-                Size = e is FileInfo fi ? fi.Length : null,
-                Created = e.CreationTimeUtc,
-                Modified = e.LastWriteTimeUtc
-            }).ToList();
+                if (results.Count >= MaxListingEntries)
+                {
+                    _logger.Log("WARN", "List", path,
+                        $"Listing truncated at {MaxListingEntries} entries");
+                    break;
+                }
+
+                // Re-validate each enumerated path to catch symlinks pointing outside
+                if (!IsPathAllowed(e.FullName))
+                {
+                    _logger.Log("WARN", "List", e.FullName, "Skipped: resolved path is outside allowed directories");
+                    continue;
+                }
+
+                var isSymlink = e.LinkTarget != null;
+                var entryType = isSymlink ? FileEntry.FileType.Symlink
+                    : e is FileInfo ? FileEntry.FileType.File
+                    : FileEntry.FileType.Directory;
+
+                results.Add(new FileEntry
+                {
+                    Name = e.Name,
+                    Path = e.FullName,
+                    Type = entryType,
+                    Size = e is FileInfo fi ? fi.Length : null,
+                    Created = e.CreationTimeUtc,
+                    Modified = e.LastWriteTimeUtc
+                });
+            }
+
+            return results;
         }
         catch (McpError)
         {
@@ -319,14 +345,29 @@ public class FileSystemService : IFileSystemService
     {
         try
         {
-            // Normalize the path to prevent directory traversal attacks
-            var normalizedPath = Path.GetFullPath(path);
+            // Resolve symlinks/junctions to get the real target path
+            var normalizedPath = ResolveFinalTarget(path);
 
-            foreach (var allowedDir in _config.AllowedDirectories)
+            // Take a snapshot of allowed directories (thread-safe via ServerConfiguration)
+            var allowedDirs = _config.AllowedDirectories;
+
+            foreach (var allowedDir in allowedDirs)
             {
                 var allowedNormalized = Path.GetFullPath(allowedDir);
 
-                if (normalizedPath.StartsWith(allowedNormalized, StringComparison.OrdinalIgnoreCase))
+                // Exact match: the path IS the allowed directory
+                if (normalizedPath.Equals(allowedNormalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // Prefix match: ensure a directory separator follows so that
+                // allowed dir "C:\Data" does not also match "C:\DataExposed"
+                var allowedWithSep = allowedNormalized.EndsWith(Path.DirectorySeparatorChar)
+                    ? allowedNormalized
+                    : allowedNormalized + Path.DirectorySeparatorChar;
+
+                if (normalizedPath.StartsWith(allowedWithSep, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -339,6 +380,51 @@ public class FileSystemService : IFileSystemService
             _logger.Log("ERROR", "IsPathAllowed", path, $"Error checking path: {ex.Message}");
             throw McpErrorFactory.InternalError($"Path validation failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Resolves symlinks/junctions and returns the real filesystem path.
+    /// Falls back to Path.GetFullPath if the target does not exist yet (e.g., new file writes).
+    /// </summary>
+    private static string ResolveFinalTarget(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+
+        // For files: check if it is a symlink and resolve
+        if (File.Exists(fullPath))
+        {
+            var fi = new FileInfo(fullPath);
+            if (fi.LinkTarget != null)
+            {
+                return Path.GetFullPath(fi.LinkTarget, Path.GetDirectoryName(fullPath)!);
+            }
+            return fullPath;
+        }
+
+        // For directories: check if it is a symlink/junction and resolve
+        if (Directory.Exists(fullPath))
+        {
+            var di = new DirectoryInfo(fullPath);
+            if (di.LinkTarget != null)
+            {
+                return Path.GetFullPath(di.LinkTarget, Path.GetDirectoryName(fullPath)!);
+            }
+            return fullPath;
+        }
+
+        // Target does not exist yet (write/create scenario):
+        // resolve the parent directory to catch symlinked parent dirs
+        var parentDir = Path.GetDirectoryName(fullPath);
+        if (parentDir != null && Directory.Exists(parentDir))
+        {
+            var parentInfo = new DirectoryInfo(parentDir);
+            var resolvedParent = parentInfo.LinkTarget != null
+                ? Path.GetFullPath(parentInfo.LinkTarget, Path.GetDirectoryName(parentDir)!)
+                : parentDir;
+            return Path.Combine(resolvedParent, Path.GetFileName(fullPath));
+        }
+
+        return fullPath;
     }
 }
 
