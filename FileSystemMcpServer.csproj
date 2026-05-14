@@ -8,6 +8,17 @@
     <RootNamespace>FileSystemMcpServer</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FileSystemMcpServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="FileSystemMcpServer.Tests\**" />
+    <Content Remove="FileSystemMcpServer.Tests\**" />
+    <EmbeddedResource Remove="FileSystemMcpServer.Tests\**" />
+    <None Remove="FileSystemMcpServer.Tests\**" />
+  </ItemGroup>
+
   <!-- Security-vetted, production-ready packages -->
   <ItemGroup>
     <!-- Microsoft.Extensions for dependency injection and configuration -->

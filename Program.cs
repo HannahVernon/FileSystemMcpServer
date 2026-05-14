@@ -53,12 +53,23 @@ public class Program
 
                     var config = new ServerConfiguration();
 
-                    config.AllowedDirectories.AddRange(new[]
+                    if (args.Length == 0)
                     {
-                        "/tmp/mcp-files",
-                        @"C:\Users\Public\MCPFiles",
-                        "/home/user/.mcp"
-                    });
+                        Console.Error.WriteLine("Usage: FileSystemMcpServer <directory> [directory ...]");
+                        Console.Error.WriteLine("At least one allowed directory must be specified.");
+                        Environment.Exit(1);
+                    }
+
+                    foreach (var dir in args)
+                    {
+                        var fullPath = Path.GetFullPath(dir);
+                        if (!Directory.Exists(fullPath))
+                        {
+                            Console.Error.WriteLine($"Warning: directory does not exist and will be skipped: {fullPath}");
+                            continue;
+                        }
+                        config.AddAllowedDirectory(fullPath);
+                    }
 
                     services.AddSingleton(config);
                     services.AddSingleton<IFileSystemService, FileSystemService>();
@@ -105,9 +116,9 @@ public class Program
     /// Main loop for handling JSON-RPC requests via stdio
     /// </summary>
     private const int MaxLineLength = 10 * 1024 * 1024; // 10 MB
-    private static bool _initialized = false;
+    internal static bool _initialized = false;
 
-    private static void RunMcpLoop(IHost host)
+    internal static void RunMcpLoop(IHost host)
     {
         var stdin = Console.OpenStandardInput();
         var stdout = Console.OpenStandardOutput();
@@ -178,7 +189,7 @@ public class Program
     /// <summary>
     /// Handle MCP method calls
     /// </summary>
-    private static McpResponse HandleMethod(McpRequest request, IServiceProvider services)
+    internal static McpResponse HandleMethod(McpRequest request, IServiceProvider services)
     {
         var fileService = services.GetRequiredService<IFileSystemService>();
         var config = services.GetRequiredService<ServerConfiguration>();
@@ -200,14 +211,14 @@ public class Program
         };
     }
 
-    private static McpResponse? RequireCapability(bool allowed, string operation, McpRequest request)
+    internal static McpResponse? RequireCapability(bool allowed, string operation, McpRequest request)
     {
         if (allowed) return null;
         return McpResponse.Error(McpErrorFactory.OperationNotSupported(
             $"{operation} is disabled by server configuration"), request.Id);
     }
 
-    private static McpResponse HandleInitialize(McpRequest request)
+    internal static McpResponse HandleInitialize(McpRequest request)
     {
         _initialized = true;
         Console.Error.WriteLine("MCP initialization handshake accepted.");
@@ -413,7 +424,7 @@ public class Program
     /// Reads a line from the stream with a maximum length to prevent memory exhaustion.
     /// Returns null at end-of-stream.
     /// </summary>
-    private static string? ReadLineBounded(StreamReader reader, int maxLength)
+    internal static string? ReadLineBounded(StreamReader reader, int maxLength)
     {
         var sb = new System.Text.StringBuilder();
         int ch;

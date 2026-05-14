@@ -4,20 +4,30 @@
 
 ```
 FileSystemMcpServer/
+  .github/
+    workflows/
+      ci.yml                    - GitHub Actions CI (build + test on push/PR)
+    ISSUE_TEMPLATE/             - Bug report and feature request forms
+    PULL_REQUEST_TEMPLATE.md    - PR template
   Configuration/
-    ServerConfiguration.cs    - Allowed directories, file size limits, watcher toggle
+    ServerConfiguration.cs      - Allowed directories, file size limits, watcher toggle
   Logging/
-    McpLogger.cs              - File-based logger implementing ILogger
+    McpLogger.cs                - File-based logger implementing ILogger
   Models/
-    McpError.cs               - Error codes, McpError exception, McpErrorFactory
-    McpRequestResponse.cs     - McpRequest, McpParams, McpResponse DTOs
+    McpError.cs                 - Error codes, McpError exception, McpErrorFactory
+    McpRequestResponse.cs       - McpRequest, McpParams, McpResponse DTOs
   Services/
-    IFileSystemService.cs     - Interface for filesystem operations
-    FileSystemService.cs      - Implementation with path validation and security checks
+    IFileSystemService.cs       - Interface for filesystem operations
+    FileSystemService.cs        - Implementation with path validation and security checks
     FileSystemWatcherService.cs - Optional directory change monitoring
-  Program.cs                  - Entry point, DI setup, JSON-RPC stdio loop, McpArgs DTO
-  FileSystemMcpServer.csproj  - Project file (.NET 10)
-  FileSystemMcpServer.sln     - Solution file
+  FileSystemMcpServer.Tests/
+    ServerConfigurationTests.cs - ServerConfiguration unit tests
+    FileSystemServiceTests.cs   - FileSystemService unit tests
+    McpLoggerTests.cs           - McpLogger unit tests
+    McpProtocolTests.cs         - MCP JSON-RPC protocol handler tests
+  Program.cs                    - Entry point, DI setup, JSON-RPC stdio loop, McpArgs DTO
+  FileSystemMcpServer.csproj    - Project file (.NET 10)
+  FileSystemMcpServer.sln       - Solution file
 ```
 
 ## Communication flow
@@ -49,11 +59,11 @@ LM Studio / Ollama
 
 ### Program.cs
 
-Entry point. Sets up dependency injection via `Microsoft.Extensions.Hosting`, then runs the main stdio loop (`RunMcpLoop`). Contains the `McpArgs` DTO used to deserialize JSON-RPC arguments, and all `Handle*` methods that map MCP methods to `IFileSystemService` calls.
+Entry point.  Sets up dependency injection via `Microsoft.Extensions.Hosting`, then runs the main stdio loop (`RunMcpLoop`).  Allowed directories are accepted as command-line arguments (no hardcoded defaults).  Contains the `McpArgs` DTO used to deserialize JSON-RPC arguments, and all `Handle*` methods that map MCP methods to `IFileSystemService` calls.
 
 ### ServerConfiguration
 
-Holds the list of allowed directories, maximum file size, log file path, and the file watcher toggle. `Validate()` prunes directories that do not exist on the current OS (the defaults include Linux, macOS, and Windows paths). `AddAllowedDirectory()` normalizes paths via `Path.GetFullPath` to prevent traversal attacks.
+Holds the list of allowed directories, maximum file size, log file path, and the file watcher toggle.  Allowed directories are supplied via command-line arguments at startup; there are no hardcoded defaults.  `Validate()` prunes directories that do not exist on the current OS.  `AddAllowedDirectory()` normalizes paths via `Path.GetFullPath` to prevent traversal attacks.
 
 ### FileSystemService
 

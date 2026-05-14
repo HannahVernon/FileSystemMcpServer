@@ -26,22 +26,16 @@ dotnet build
 ## Running
 
 ```shell
-dotnet run
+dotnet run -- /path/to/allowed-dir1 /path/to/allowed-dir2
 ```
 
-The server communicates via stdin/stdout using JSON-RPC 2.0. Diagnostic output goes to stderr so it does not interfere with the protocol.
+Pass one or more directory paths as command-line arguments.  The server restricts all file operations to those directories.  Directories that do not exist are skipped with a warning.
+
+The server communicates via stdin/stdout using JSON-RPC 2.0.  Diagnostic output goes to stderr so it does not interfere with the protocol.
 
 ## Configuration
 
-By default, the server allows access to these directories:
-
-Path | Platform
------|--------
-`/tmp/mcp-files` | Linux
-`C:\Users\Public\MCPFiles` | Windows
-`/home/user/.mcp` | Linux/macOS
-
-Directories that do not exist on the current OS are automatically pruned at startup. You can add directories at runtime using the `filesystem/configureDirectories` method.
+You can add additional directories at runtime using the `filesystem/configureDirectories` method.
 
 ## JSON-RPC Methods
 
@@ -91,7 +85,7 @@ Add the server to your LM Studio MCP configuration:
   "mcpServers": {
     "filesystem": {
       "command": "dotnet",
-      "args": ["run", "--project", "C:\\path\\to\\FileSystemMcpServer"]
+      "args": ["run", "--project", "C:\\path\\to\\FileSystemMcpServer", "--", "C:\\Users\\Public\\MCPFiles"]
     }
   }
 }
