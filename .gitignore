@@ -1,0 +1,26 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+## Visual Studio
+.vs/
+*.sln.docstates
+launchSettings.json
+
+## JetBrains Rider
+.idea/
+
+## Logs
+*.log
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store

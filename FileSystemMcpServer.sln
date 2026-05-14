@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11723.231 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileSystemMcpServer", "FileSystemMcpServer.csproj", "{B392464B-31B2-465E-748B-C6FE7B9FF94F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B392464B-31B2-465E-748B-C6FE7B9FF94F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B392464B-31B2-465E-748B-C6FE7B9FF94F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B392464B-31B2-465E-748B-C6FE7B9FF94F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B392464B-31B2-465E-748B-C6FE7B9FF94F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6724F82A-2E7A-4DD0-B8C6-6A9B49FD8395}
+	EndGlobalSection
+EndGlobal
