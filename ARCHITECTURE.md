@@ -7,6 +7,8 @@ FileSystemMcpServer/
   .github/
     workflows/
       ci.yml                    - GitHub Actions CI (build + test on push/PR)
+      version-bump.yml          - Auto-tag on PR merge to main
+      build-release.yml         - Build, publish, and create GitHub Release
     ISSUE_TEMPLATE/             - Bug report and feature request forms
     PULL_REQUEST_TEMPLATE.md    - PR template
   Configuration/
@@ -26,6 +28,7 @@ FileSystemMcpServer/
     McpLoggerTests.cs           - McpLogger unit tests
     McpProtocolTests.cs         - MCP JSON-RPC protocol handler tests
   Program.cs                    - Entry point, DI setup, JSON-RPC stdio loop, McpArgs DTO
+  Directory.Build.props         - MinVer versioning configuration
   FileSystemMcpServer.csproj    - Project file (.NET 10)
   FileSystemMcpServer.sln       - Solution file
 ```
