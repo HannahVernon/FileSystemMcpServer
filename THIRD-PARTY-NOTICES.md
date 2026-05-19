@@ -2,6 +2,14 @@
 
 This project uses the following third-party packages.
 
+## MinVer
+
+- **Version:** 6.0.0
+- **Copyright:** Copyright (c) Adam Ralph
+- **License:** Apache-2.0
+- **License URL:** https://github.com/adamralph/minver/blob/main/LICENSE
+- **Note:** Build-time only (`PrivateAssets="All"`); not included in published output.
+
 ## Newtonsoft.Json
 
 - **Version:** 13.0.3
